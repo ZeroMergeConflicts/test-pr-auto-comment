@@ -69,7 +69,7 @@ jobs:
             We may request changes or clarification before merging.
 
             Thank you again for contributing 🚀
-            ;
+            `;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
