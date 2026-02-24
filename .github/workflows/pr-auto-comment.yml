@@ -1,0 +1,79 @@
+name: pr-auto-comment
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-welcome:
+    name: Post PR Welcome Comment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for existing bot comment
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+
+            const marker = "<!-- pr-welcome-comment -->";
+
+            const exists = comments.some(c =>
+              c.user.type === "Bot" && c.body && c.body.includes(marker)
+            );
+
+            core.setOutput("exists", exists);
+
+      - name: Add welcome comment
+        if: steps.check.outputs.exists != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+
+            const body = `
+            <!-- pr-welcome-comment -->
+            
+            👋 Thank you for your contribution, @${author}!
+
+            We appreciate the time and effort you’ve invested in improving this project.  
+            Please review the checklist below to help us process your pull request efficiently.
+
+            ---
+
+            ## ✅ Contributor Checklist
+
+            - [ ] Code follows project coding standards
+            - [ ] Tests added or updated (if applicable)
+            - [ ] Documentation updated (if applicable)
+            - [ ] No secrets or sensitive data included
+            - [ ] Changes are scoped and minimal
+            - [ ] Commit messages are clear and descriptive
+
+            ---
+
+            ## 📌 Review Process
+
+            A maintainer will review this pull request shortly.  
+            We may request changes or clarification before merging.
+
+            Thank you again for contributing 🚀
+            ;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body
+            });
