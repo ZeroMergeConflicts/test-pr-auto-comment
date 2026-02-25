@@ -1,52 +1,15 @@
-name: 'PR Auto Comment'
-description: 'Automatically post a welcome comment on new pull requests'
-author: 'ZeroMergeConflicts'
+# branding
 
-inputs:
-  comment-body:
-    description: 'The body of the comment to post on new PRs'
-    required: false
-    default: |
-      👋 Thank you for your contribution!
-      
-      We appreciate the time and effort you've invested in improving this project.
-      Please review the checklist below to help us process your pull request efficiently.
-      
-      ---
-      
-      ## ✅ Contributor Checklist
-      
-      - [ ] Code follows project coding standards
-      - [ ] Tests added or updated (if applicable)
-      - [ ] Documentation updated (if applicable)
-      - [ ] No secrets or sensitive data included
-      - [ ] Changes are scoped and minimal
-      - [ ] Commit messages are clear and descriptive
-      
-      ---
-      
-      ## 📌 Review Process
-      
-      A maintainer will review this pull request shortly.
-      We may request changes or clarification before merging.
-      
-      Thank you again for contributing 🚀
+branding:
+  icon: 'https://example.com/icon.png'
+  color: '#ffcc00'
 
-runs:
-  using: 'composite'
-  steps:
-    - name: Post PR Welcome Comment
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const pr = context.payload.pull_request;
-          const author = pr.user.login;
-          
-          const body = `${{ inputs.comment-body }}`;
-          
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: pr.number,
-            body: body.replace(/\${author}/g, author)
-          });
+# marketplace metadata
+
+marketplace:
+  name: 'My GitHub Action'
+  description: 'This action does something awesome!'
+  keywords: ['github', 'action', 'awesome']
+  author: 'ZeroMergeConflicts'
+  homepage: 'https://example.com'
+  support: 'https://example.com/support'
