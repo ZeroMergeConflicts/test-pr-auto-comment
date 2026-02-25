@@ -1,0 +1,114 @@
+name: PR Template Comment (Test)
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-comment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Resolve template
+        id: tpl
+        shell: bash
+        run: |
+          USER_PATH=".github/pr-auto-comment.md"
+          NAME="default"
+          ACTION_DIR=".github/templates"
+
+          if [ -f "$USER_PATH" ]; then
+            cat "$USER_PATH" > tpl.txt
+          elif [ -f "$ACTION_DIR/$NAME.md" ]; then
+            cat "$ACTION_DIR/$NAME.md" > tpl.txt
+          else
+            echo "PR #\${{ github.event.pull_request.number }} by @\${{ github.actor }}" > tpl.txt
+          fi
+
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat tpl.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        env:
+          TEMPLATE: ${{ steps.tpl.outputs.content }}
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+
+            let body = process.env.TEMPLATE;
+
+            const additions = pr.additions || 0;
+            const deletions = pr.deletions || 0;
+            const changed = pr.changed_files || 0;
+
+            function size(n){
+              if(n<10) return "XS";
+              if(n<50) return "S";
+              if(n<200) return "M";
+              if(n<500) return "L";
+              return "XL";
+            }
+
+            function list(arr){ return arr?.join(", ") || ""; }
+            function mentions(arr){ return arr?.map(a=>"@"+a).join(" ") || ""; }
+            function lines(arr){ return arr?.map(a=>"- "+a).join("\n") || ""; }
+
+            const labels = pr.labels?.map(l=>l.name) || [];
+            const assignees = pr.assignees?.map(a=>a.login) || [];
+            const reviewers = pr.requested_reviewers?.map(r=>r.login) || [];
+
+            const map = {
+              "{author}": pr.user.login,
+              "{title}": pr.title,
+              "{number}": pr.number,
+              "{url}": pr.html_url,
+              "{branch}": pr.head.ref,
+              "{base}": pr.base.ref,
+              "{repo}": context.repo.repo,
+              "{owner}": context.repo.owner,
+              "{draft}": pr.draft ? "true" : "",
+              "{created_at}": pr.created_at,
+              "{additions}": additions,
+              "{deletions}": deletions,
+              "{changed_files}": changed,
+              "{size}": size(additions+deletions),
+              "{labels}": list(labels),
+              "{labels:comma}": list(labels),
+              "{labels:mentions}": mentions(labels),
+              "{labels:lines}": lines(labels),
+              "{assignees}": list(assignees),
+              "{assignees:mentions}": mentions(assignees),
+              "{reviewers}": list(reviewers),
+              "{reviewers:mentions}": mentions(reviewers)
+            };
+
+            for(const [k,v] of Object.entries(map)){
+              body = body.split(k).join(v || "");
+            }
+
+            body = body.replace(/\{#if ([^}]+)\}([\s\S]*?)\{\/if\}/g,(m,key,content)=>{
+              key = key.trim();
+              const val = map["{"+key+"}"];
+              return val ? content : "";
+            });
+
+            if(!body.trim()){
+              body = `PR #${pr.number} by @${pr.user.login}`;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body
+            });
